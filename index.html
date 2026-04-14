@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teachable Machine</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg:       #080c14;
+      --surface:  #0e1521;
+      --card:     #131c2e;
+      --border:   #1e2d45;
+      --accent:   #00e5ff;
+      --accent2:  #7c3aed;
+      --text:     #e2eaf5;
+      --muted:    #5a7090;
+      --danger:   #ff4560;
+      --success:  #00e5a0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated grid background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: .35;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body > * { position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 12, 20, .85);
+      backdrop-filter: blur(12px);
+      padding: 1.1rem 2rem;
+    }
+
+    .brand {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: .04em;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .brand span { color: var(--text); }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      display: inline-block;
+      margin-right: .4rem;
+      transition: background .3s, box-shadow .3s;
+    }
+    .status-dot.live {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .4; }
+    }
+
+    /* ── Main card ── */
+    .main-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,229,255,.04), 0 8px 40px rgba(0,0,0,.5);
+    }
+
+    /* ── Webcam panel ── */
+    .webcam-panel {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 380px;
+      padding: 2rem;
+      gap: 1.5rem;
+    }
+
+    #webcam-container {
+      position: relative;
+      width: 100%;
+      max-width: 280px;
+    }
+    #webcam-container canvas {
+      width: 100% !important;
+      height: auto !important;
+      border-radius: 14px;
+      border: 2px solid var(--border);
+      display: block;
+      transition: border-color .4s;
+    }
+    #webcam-container.active canvas {
+      border-color: var(--accent);
+      box-shadow: 0 0 24px rgba(0,229,255,.2);
+    }
+
+    /* scan line animation */
+    #webcam-container.active::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      border-radius: 2px;
+      animation: scan 2s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes scan {
+      0%   { top: 0; opacity: .8; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    /* corner brackets */
+    .cam-frame {
+      position: relative;
+      width: 100%;
+      max-width: 280px;
+    }
+    .cam-frame::before,
+    .cam-frame::after,
+    .cam-frame > span::before,
+    .cam-frame > span::after {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      border-color: var(--accent);
+      border-style: solid;
+      opacity: 0;
+      transition: opacity .5s;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .cam-frame.active::before,
+    .cam-frame.active::after,
+    .cam-frame.active > span::before,
+    .cam-frame.active > span::after { opacity: 1; }
+
+    .cam-frame::before  { top: 6px;    left: 6px;  border-width: 2px 0 0 2px; }
+    .cam-frame::after   { top: 6px;    right: 6px; border-width: 2px 2px 0 0; }
+    .cam-frame > span::before { bottom: 6px; left: 6px;  border-width: 0 0 2px 2px; }
+    .cam-frame > span::after  { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+    /* placeholder */
+    .cam-placeholder {
+      width: 100%;
+      max-width: 280px;
+      aspect-ratio: 1;
+      background: rgba(0,0,0,.3);
+      border: 2px dashed var(--border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      gap: .6rem;
+      font-size: .85rem;
+    }
+    .cam-placeholder i { font-size: 2.5rem; }
+
+    /* ── Start button ── */
+    .btn-start {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .75rem 2rem;
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+      border-radius: 50px;
+      font-family: 'Space Mono', monospace;
+      font-size: .9rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      cursor: pointer;
+      overflow: hidden;
+      transition: color .25s, background .25s, box-shadow .25s;
+      text-transform: uppercase;
+    }
+    .btn-start::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--accent);
+      transform: translateX(-100%);
+      transition: transform .3s ease;
+      z-index: 0;
+    }
+    .btn-start:hover::before { transform: translateX(0); }
+    .btn-start:hover { color: var(--bg); box-shadow: 0 0 20px rgba(0,229,255,.35); }
+    .btn-start span, .btn-start i { position: relative; z-index: 1; }
+    .btn-start:disabled {
+      border-color: var(--muted);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .btn-start:disabled::before { display: none; }
+
+    /* loading spinner inside button */
+    .btn-start .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      position: relative; z-index: 1;
+    }
+    .btn-start.loading .spinner { display: block; }
+    .btn-start.loading .btn-icon { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results panel ── */
+    .results-panel {
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .panel-title {
+      font-family: 'Space Mono', monospace;
+      font-size: .7rem;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .25rem;
+    }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .result-card.top {
+      border-color: var(--accent);
+      box-shadow: 0 0 16px rgba(0,229,255,.1);
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: .6rem;
+    }
+
+    .class-name {
+      font-size: .95rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 65%;
+    }
+
+    .pct-badge {
+      font-family: 'Space Mono', monospace;
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--accent);
+      transition: color .3s;
+      flex-shrink: 0;
+    }
+    .result-card.low .pct-badge { color: var(--muted); }
+    .result-card.high .pct-badge { color: var(--success); }
+
+    /* Custom progress bar */
+    .prog-track {
+      height: 6px;
+      background: rgba(255,255,255,.06);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      border-radius: 99px;
+      width: 0%;
+      transition: width .35s ease, background .35s;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+    }
+    .result-card.high .prog-fill {
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      box-shadow: 0 0 8px rgba(0,229,255,.4);
+    }
+
+    /* idle placeholder cards */
+    .idle-label {
+      color: var(--muted);
+      font-size: .85rem;
+      font-style: italic;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+      font-size: .75rem;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Responsive tweaks ── */
+    @media (max-width: 767px) {
+      .webcam-panel { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════ HEADER ════════════════════ -->
+<header class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <a class="brand" href="#">TM<span>·Vision</span></a>
+  <div class="d-flex align-items-center gap-2" style="font-size:.8rem; color:var(--muted); font-family:'Space Mono',monospace;">
+    <span class="status-dot" id="statusDot"></span>
+    <span id="statusText">Câmera inativa</span>
+  </div>
+</header>
+
+<!-- ════════════════════ MAIN ════════════════════ -->
+<main class="container-fluid py-4 px-3 px-md-4" style="max-width:900px;">
+
+  <div class="main-card">
+    <div class="row g-0">
+
+      <!-- ── Webcam side ── -->
+      <div class="col-12 col-md-5 webcam-panel">
+
+        <div class="cam-frame" id="camFrame">
+          <span></span><!-- corners -->
+
+          <!-- placeholder shown before init -->
+          <div class="cam-placeholder" id="camPlaceholder">
+            <i class="bi bi-camera-video"></i>
+            <span>Câmera desativada</span>
+          </div>
+
+          <!-- webcam canvas injected here -->
+          <div id="webcam-container" style="display:none;"></div>
+        </div>
+
+        <!-- Start button -->
+        <button class="btn-start" id="startBtn" onclick="init()">
+          <div class="spinner"></div>
+          <i class="bi bi-camera-video-fill btn-icon"></i>
+          <span>Ativar câmera</span>
+        </button>
+
+        <p style="font-size:.72rem; color:var(--muted); text-align:center; max-width:220px; line-height:1.5;">
+          Será solicitada permissão de acesso à câmera do dispositivo.
+        </p>
+      </div>
+
+      <!-- ── Results side ── -->
+      <div class="col-12 col-md-7 results-panel">
+        <p class="panel-title"><i class="bi bi-bar-chart-fill me-1"></i>Correspondência por classe</p>
+
+        <!-- Label container — filled dynamically -->
+        <div id="label-container">
+          <!-- Idle state: 3 skeleton cards -->
+          <div class="result-card mb-2" id="idle-hint">
+            <div class="result-header">
+              <span class="class-name idle-label">Aguardando modelo...</span>
+              <span class="pct-badge" style="color:var(--muted);">—</span>
+            </div>
+            <div class="prog-track"><div class="prog-fill" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<!-- ════════════════════ FOOTER ════════════════════ -->
+<footer class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <span>Powered by <a href="https://teachablemachine.withgoogle.com/" target="_blank">Teachable Machine</a> + TensorFlow.js</span>
+  <span style="color:var(--border);">TM·Vision v1.0</span>
+</footer>
+
+<!-- ════════════════════ SCRIPTS ════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+<script>
+  const MODEL_URL = "https://teachablemachine.withgoogle.com/models/DikC-K2EA/";
+  let model, webcam, maxPredictions;
+  let resultCards = [];
+
+  // Colour thresholds
+  function cardClass(prob) {
+    if (prob >= 0.6) return 'high';
+    if (prob >= 0.2) return '';
+    return 'low';
+  }
+
+  async function init() {
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    try {
+      model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+      maxPredictions = model.getTotalClasses();
+
+      const flip = true;
+      webcam = new tmImage.Webcam(280, 280, flip);
+      await webcam.setup();
+      await webcam.play();
+
+      // Swap placeholder for live canvas
+      document.getElementById('camPlaceholder').style.display = 'none';
+      const wcContainer = document.getElementById('webcam-container');
+      wcContainer.style.display = 'block';
+      wcContainer.appendChild(webcam.canvas);
+      wcContainer.classList.add('active');
+      document.getElementById('camFrame').classList.add('active');
+
+      // Status dot
+      document.getElementById('statusDot').classList.add('live');
+      document.getElementById('statusText').textContent = 'Câmera ativa';
+
+      // Build result cards
+      const labelContainer = document.getElementById('label-container');
+      labelContainer.innerHTML = '';   // clear skeleton
+      resultCards = [];
+
+      for (let i = 0; i < maxPredictions; i++) {
+        const card = document.createElement('div');
+        card.className = 'result-card mb-2';
+        card.innerHTML = `
+          <div class="result-header">
+            <span class="class-name">—</span>
+            <span class="pct-badge">0%</span>
+          </div>
+          <div class="prog-track">
+            <div class="prog-fill"></div>
+          </div>`;
+        labelContainer.appendChild(card);
+        resultCards.push(card);
+      }
+
+      btn.classList.remove('loading');
+      btn.disabled = true;   // already running
+      btn.querySelector('span').textContent = 'Câmera ativa';
+      btn.querySelector('.btn-icon').className = 'bi bi-camera-video btn-icon';
+
+      window.requestAnimationFrame(loop);
+
+    } catch (err) {
+      console.error(err);
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      document.getElementById('statusText').textContent = 'Erro ao iniciar';
+    }
+  }
+
+  async function loop() {
+    webcam.update();
+    await predict();
+    window.requestAnimationFrame(loop);
+  }
+
+  async function predict() {
+    const prediction = await model.predict(webcam.canvas);
+
+    // Find top class index
+    let topIdx = 0;
+    prediction.forEach((p, i) => { if (p.probability > prediction[topIdx].probability) topIdx = i; });
+
+    prediction.forEach((p, i) => {
+      const card  = resultCards[i];
+      const pct   = Math.round(p.probability * 100);
+      const fill  = card.querySelector('.prog-fill');
+      const badge = card.querySelector('.pct-badge');
+      const name  = card.querySelector('.class-name');
+
+      name.textContent  = p.className;
+      badge.textContent = pct + '%';
+      fill.style.width  = pct + '%';
+
+      // Reset classes
+      card.classList.remove('top', 'high', 'low');
+      if (i === topIdx)      card.classList.add('top');
+      card.classList.add(cardClass(p.probability));
+    });
+  }
+</script>
+</body>
+</html>
