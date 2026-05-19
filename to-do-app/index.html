@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TaskFlow — Gerencie suas tarefas com elegância. Login, cadastro e painel completo." />
+  <title>TaskFlow — Gerenciador de Tarefas</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* ── Reset & Base ───────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      background-color: #0f172a;
+      font-family: 'Inter', sans-serif;
+      color: #f1f5f9;
+      min-height: 100vh;
+    }
+
+    /* ── Orbs ───────────────────────────────────────── */
+    .orb {
+      position: fixed; border-radius: 50%;
+      filter: blur(110px); opacity: 0.15;
+      pointer-events: none; z-index: 0;
+    }
+    .orb-1 { width: 480px; height: 480px; background: #0ea5e9; top: -160px; left: -100px; }
+    .orb-2 { width: 380px; height: 380px; background: #6366f1; bottom: -100px; right: -80px; }
+    .orb-3 { width: 260px; height: 260px; background: #10b981; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+    /* ── Glass ──────────────────────────────────────── */
+    .glass {
+      background: rgba(30, 41, 59, 0.52);
+      border: 1px solid rgba(148, 163, 184, 0.11);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .glass-dark {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.09);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* ── Screens ────────────────────────────────────── */
+    .screen { display: none; }
+    .screen.active { display: flex; }
+    #screen-dashboard.active { display: flex; flex-direction: column; }
+
+    /* ── Inputs ─────────────────────────────────────── */
+    .field {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      color: #f1f5f9;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.875rem;
+      font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .field:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.14);
+    }
+    .field::placeholder { color: #475569; }
+    select.field option { background: #1e293b; color: #f1f5f9; }
+    textarea.field { resize: vertical; min-height: 80px; }
+
+    /* ── Buttons ────────────────────────────────────── */
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+    .btn-primary:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(14,165,233,0.28);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-ghost {
+      background: none; border: none;
+      color: #94a3b8; font-family: 'Inter', sans-serif;
+      font-size: 0.875rem; font-weight: 500;
+      cursor: pointer; transition: color 0.2s;
+    }
+    .btn-ghost:hover { color: #38bdf8; }
+
+    .btn-logout {
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: none;
+      color: #64748b; font-family: 'Inter', sans-serif;
+      font-size: 0.8rem; font-weight: 500;
+      cursor: pointer; padding: 8px 12px; border-radius: 10px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .btn-logout:hover { color: #f87171; background: rgba(239,68,68,0.09); }
+
+    .btn-done {
+      background: none;
+      border: 1px solid rgba(148,163,184,0.2);
+      color: #94a3b8; font-family: 'Inter', sans-serif;
+      font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; padding: 5px 12px; border-radius: 8px;
+      white-space: nowrap; flex-shrink: 0;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .btn-done:hover {
+      border-color: #10b981;
+      color: #10b981;
+      background: rgba(16,185,129,0.08);
+    }
+
+    /* ── Alert ──────────────────────────────────────── */
+    .alert-error {
+      display: none;
+      align-items: center; gap: 8px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.22);
+      color: #f87171;
+      font-size: 0.8rem;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .alert-error.show { display: flex; }
+
+    .alert-success {
+      display: none;
+      align-items: center; gap: 8px;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.22);
+      color: #34d399;
+      font-size: 0.8rem;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .alert-success.show { display: flex; }
+
+    /* ── Badges ─────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      font-size: 0.68rem; font-weight: 700;
+      padding: 3px 9px; border-radius: 99px;
+      letter-spacing: 0.02em; white-space: nowrap;
+    }
+    .badge-trabalho { background: rgba(14,165,233,0.15); color: #38bdf8; }
+    .badge-pessoal  { background: rgba(99,102,241,0.18); color: #a5b4fc; }
+    .badge-estudos  { background: rgba(16,185,129,0.15); color: #34d399; }
+
+    /* ── Task Cards ─────────────────────────────────── */
+    .task-card {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: rgba(30, 41, 59, 0.42);
+      border: 1px solid rgba(148, 163, 184, 0.09);
+      backdrop-filter: blur(10px);
+      border-radius: 14px;
+      padding: 16px 18px;
+      animation: slideUp 0.25s cubic-bezier(0.16,1,0.3,1) forwards;
+      transition: border-color 0.2s, opacity 0.3s;
+    }
+    .task-card:hover { border-color: rgba(56,189,248,0.18); }
+    .task-card.is-done {
+      opacity: 0.45;
+      border-color: rgba(148,163,184,0.06);
+    }
+    .task-card.is-done .task-title {
+      text-decoration: line-through;
+      color: #475569;
+    }
+    .task-body { flex: 1; min-width: 0; }
+    .task-title {
+      font-size: 0.9rem; font-weight: 600;
+      color: #e2e8f0; margin-bottom: 6px;
+      line-height: 1.4;
+    }
+    .task-desc {
+      font-size: 0.8rem; color: #64748b;
+      line-height: 1.5; margin-top: 4px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .task-meta {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 6px; flex-wrap: wrap;
+    }
+    .done-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.68rem; font-weight: 600;
+      color: #34d399;
+      padding: 2px 8px; border-radius: 99px;
+      background: rgba(16,185,129,0.1);
+    }
+
+    /* ── Empty state ────────────────────────────────── */
+    .empty-state {
+      text-align: center; padding: 48px 24px;
+      color: #475569; font-size: 0.875rem;
+    }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* ── Scrollbar ──────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
+
+    /* ── Animations ─────────────────────────────────── */
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .anim-slide-up { animation: slideUp 0.38s cubic-bezier(0.16,1,0.3,1) forwards; }
+    .anim-fade-in  { animation: fadeIn 0.3s ease forwards; }
+
+    /* ── Divider ────────────────────────────────────── */
+    .section-label {
+      font-size: 0.7rem; font-weight: 700;
+      color: #475569; text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body class="relative overflow-x-hidden">
+
+  <!-- Background orbs -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- ══════════════════════════════════════════════════
+       SCREEN: LOGIN
+  ══════════════════════════════════════════════════ -->
+  <div id="screen-login" class="screen active min-h-screen items-center justify-center p-4 relative z-10">
+    <div class="glass rounded-2xl p-8 w-full max-w-md anim-slide-up">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center font-bold text-lg text-white">T</div>
+        <span class="text-xl font-semibold">TaskFlow</span>
+      </div>
+
+      <h1 class="text-2xl font-bold text-white mb-1">Bem-vindo de volta</h1>
+      <p class="text-slate-400 text-sm mb-7">Entre na sua conta para continuar</p>
+
+      <!-- Error -->
+      <div id="login-err" class="alert-error" role="alert">
+        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span id="login-err-msg"></span>
+      </div>
+
+      <form id="login-form" novalidate>
+        <div class="mb-4">
+          <label for="login-email" class="block text-sm font-medium text-slate-300 mb-1.5">E-mail</label>
+          <input id="login-email" type="email" placeholder="seu@email.com" autocomplete="email" class="field" />
+        </div>
+        <div class="mb-5">
+          <label for="login-password" class="block text-sm font-medium text-slate-300 mb-1.5">Senha</label>
+          <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" class="field" />
+        </div>
+        <button type="submit" id="btn-login" class="btn-primary">Entrar</button>
+      </form>
+
+      <p class="text-center text-slate-500 text-sm mt-6">
+        Não tem uma conta?
+        <button id="goto-register" class="btn-ghost ml-1">Cadastrar-se</button>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       SCREEN: REGISTER
+  ══════════════════════════════════════════════════ -->
+  <div id="screen-register" class="screen min-h-screen items-center justify-center p-4 relative z-10">
+    <div class="glass rounded-2xl p-8 w-full max-w-md anim-slide-up">
+
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center font-bold text-lg text-white">T</div>
+        <span class="text-xl font-semibold">TaskFlow</span>
+      </div>
+
+      <h1 class="text-2xl font-bold text-white mb-1">Criar conta</h1>
+      <p class="text-slate-400 text-sm mb-7">Preencha os dados para começar</p>
+
+      <div id="reg-err" class="alert-error" role="alert">
+        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        <span id="reg-err-msg"></span>
+      </div>
+      <div id="reg-ok" class="alert-success">
+        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <span>Conta criada com sucesso! Redirecionando...</span>
+      </div>
+
+      <form id="reg-form" novalidate>
+        <div class="mb-4">
+          <label for="reg-name" class="block text-sm font-medium text-slate-300 mb-1.5">Nome completo</label>
+          <input id="reg-name" type="text" placeholder="João Silva" autocomplete="name" class="field" />
+        </div>
+        <div class="mb-4">
+          <label for="reg-email" class="block text-sm font-medium text-slate-300 mb-1.5">E-mail</label>
+          <input id="reg-email" type="email" placeholder="seu@email.com" autocomplete="email" class="field" />
+        </div>
+        <div class="mb-5">
+          <label for="reg-password" class="block text-sm font-medium text-slate-300 mb-1.5">Senha</label>
+          <input id="reg-password" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" class="field" />
+        </div>
+        <button type="submit" id="btn-register" class="btn-primary">Criar conta</button>
+      </form>
+
+      <p class="text-center text-slate-500 text-sm mt-6">
+        Já tem uma conta?
+        <button id="goto-login" class="btn-ghost ml-1">Entrar</button>
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       SCREEN: DASHBOARD
+  ══════════════════════════════════════════════════ -->
+  <div id="screen-dashboard" class="screen min-h-screen relative z-10">
+
+    <!-- Header -->
+    <header class="glass-dark border-b border-white/5 sticky top-0 z-20 px-6 py-4">
+      <div class="max-w-2xl mx-auto flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-500 font-medium">Painel de tarefas</p>
+          <h2 id="dash-greeting" class="text-lg font-bold text-white mt-0.5">Olá! 👋</h2>
+        </div>
+        <button id="btn-logout" class="btn-logout">
+          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="max-w-2xl mx-auto px-4 py-8 pb-16">
+
+      <!-- ── Form: Nova Tarefa ── -->
+      <section class="glass rounded-2xl p-6 mb-8">
+        <p class="section-label">Nova tarefa</p>
+
+        <div id="task-add-err" class="alert-error" role="alert">
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          <span id="task-add-err-msg"></span>
+        </div>
+
+        <form id="add-task-form" novalidate>
+          <!-- Title -->
+          <div class="mb-4">
+            <label for="task-title" class="block text-sm font-medium text-slate-300 mb-1.5">
+              Título da tarefa <span class="text-red-400">*</span>
+            </label>
+            <input id="task-title" type="text" placeholder="O que precisa ser feito?" class="field" />
+          </div>
+
+          <!-- Type -->
+          <div class="mb-4">
+            <label for="task-type" class="block text-sm font-medium text-slate-300 mb-1.5">Tipo</label>
+            <select id="task-type" class="field">
+              <option value="Trabalho">💼 Trabalho</option>
+              <option value="Pessoal">🙋 Pessoal</option>
+              <option value="Estudos">📚 Estudos</option>
+            </select>
+          </div>
+
+          <!-- Description -->
+          <div class="mb-5">
+            <label for="task-desc" class="block text-sm font-medium text-slate-300 mb-1.5">
+              Descrição <span class="text-slate-600 font-normal">(opcional)</span>
+            </label>
+            <textarea id="task-desc" placeholder="Detalhes da tarefa..." class="field" rows="3"></textarea>
+          </div>
+
+          <button type="submit" id="btn-add-task" class="btn-primary">
+            + Adicionar Tarefa
+          </button>
+        </form>
+      </section>
+
+      <!-- ── Task List ── -->
+      <section>
+        <p class="section-label">Suas tarefas</p>
+        <div id="task-list" class="flex flex-col gap-3"></div>
+        <div id="empty-state" class="empty-state hidden">
+          <div class="icon">📋</div>
+          <p class="font-medium text-slate-400">Nenhuma tarefa cadastrada ainda.</p>
+          <p class="text-slate-600 mt-1 text-xs">Use o formulário acima para criar sua primeira tarefa.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
